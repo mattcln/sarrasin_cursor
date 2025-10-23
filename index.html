@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarrasin - Week-end d'Organisation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Fond avec effets électriques -->
+    <div class="electric-bg">
+        <div class="electric-line" style="--delay: 0s"></div>
+        <div class="electric-line" style="--delay: 1s"></div>
+        <div class="electric-line" style="--delay: 2s"></div>
+        <div class="electric-line" style="--delay: 3s"></div>
+    </div>
+
+    <!-- Gif mystérieux -->
+    <img src="breizh.gif" alt="" class="mysterious-gif">
+
+    <!-- Navigation -->
+    <nav class="nav-container">
+        <button class="nav-btn active" data-page="home">Accueil</button>
+        <button class="nav-btn" data-page="faq">Tu te poses des questions ??</button>
+    </nav>
+
+    <!-- Contenu principal -->
+    <main class="container">
+        <!-- Page Accueil -->
+        <section id="home-page" class="page active">
+            <h1 class="main-title">
+                <span class="glitch" data-text="SARRASIN">SARRASIN</span>
+            </h1>
+            <p class="subtitle">Déjà honoré que tu aies cliqué sur le lien</p>
+            
+            <div class="flash-divider"></div>
+            
+            <h2 class="section-title">Participants</h2>
+            <div class="participants-grid" id="participants-list">
+                <!-- Les participants seront ajoutés dynamiquement -->
+            </div>
+        </section>
+
+        <!-- Page FAQ -->
+        <section id="faq-page" class="page">
+            <h1 class="main-title">
+                <span class="glitch" data-text="RÉPONSES">RÉPONSES</span>
+            </h1>
+            <p class="subtitle">À vos questions</p>
+            
+            <div class="flash-divider"></div>
+            
+            <div class="faq-container" id="faq-container">
+                <!-- Les questions seront ajoutées dynamiquement -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal pour afficher les réponses -->
+    <div id="answer-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modal-question"></h2>
+            <p id="modal-answer"></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
