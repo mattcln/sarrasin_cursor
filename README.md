@@ -1,4 +1,6 @@
-# Sarrasin - Site Web Week-end
+**Disclaimer** : Code dans sa quasi totalité généré via Cursor pour tester l'outil.
+
+# Sarrasin - Site Web
 
 Site web mystérieux avec effets électriques pour l'organisation d'un week-end.
 
