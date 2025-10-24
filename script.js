@@ -89,21 +89,27 @@ const socket = io();
 
 // Stockage des positions initiales
 let initialPositions = {};
+let isInitialLoad = true;
 
 // Réception des positions initiales
 socket.on('initialPositions', (positions) => {
     initialPositions = positions;
-    loadParticipants(); // Recharger les participants avec les positions sauvegardées
+    if (isInitialLoad) {
+        loadParticipants(); // Recharger les participants avec les positions sauvegardées
+        isInitialLoad = false;
+    }
 });
 
 // Réception des mises à jour de position
 socket.on('positionUpdated', (data) => {
     const card = document.querySelector(`.participant-card[data-participant="${data.participant}"]`);
-    if (card) {
-        card.style.left = `${data.x}px`;
-        card.style.top = `${data.y}px`;
-        card.style.transform = `rotate(${data.rotation}deg)`;
-        card.dataset.rotation = data.rotation;
+    if (card && !card.classList.contains('dragging')) {
+        requestAnimationFrame(() => {
+            card.style.left = `${data.x}px`;
+            card.style.top = `${data.y}px`;
+            card.style.transform = `rotate(${data.rotation}deg)`;
+            card.dataset.rotation = data.rotation;
+        });
     }
 });
 
@@ -120,6 +126,42 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Configuration du modal
     setupModal();
+    
+    // Gestion du redimensionnement
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            const container = document.getElementById('participants-list');
+            const containerRect = container.getBoundingClientRect();
+            
+            // Vérifier et ajuster la position de chaque carte si nécessaire
+            document.querySelectorAll('.participant-card').forEach(card => {
+                const cardRect = card.getBoundingClientRect();
+                const currentX = parseFloat(card.style.left);
+                const currentY = parseFloat(card.style.top);
+                
+                const maxX = containerRect.width - cardRect.width - 40;
+                const maxY = containerRect.height - cardRect.height - 40;
+                
+                const adjustedX = Math.max(20, Math.min(maxX, currentX));
+                const adjustedY = Math.max(20, Math.min(maxY, currentY));
+                
+                if (adjustedX !== currentX || adjustedY !== currentY) {
+                    card.style.left = `${adjustedX}px`;
+                    card.style.top = `${adjustedY}px`;
+                    
+                    // Informer les autres clients du changement
+                    socket.emit('updatePosition', {
+                        participant: card.dataset.participant,
+                        x: adjustedX,
+                        y: adjustedY,
+                        rotation: card.dataset.rotation || 0
+                    });
+                }
+            });
+        }, 250);
+    });
 });
 
 // Charger les participants
@@ -254,13 +296,14 @@ function makeDraggable(element, container) {
         const cardWidth = cardRect.width;
         const cardHeight = cardRect.height;
         
-        // Calculer les limites par rapport au conteneur
-        const minX = 0;
-        const maxX = containerRect.width - cardWidth;
-        const minY = 0;
-        const maxY = containerRect.height - cardHeight;
+        // Calculer les limites par rapport au conteneur en tenant compte des marges
+        const margin = 20;
+        const minX = margin;
+        const maxX = containerRect.width - cardWidth - margin;
+        const minY = margin;
+        const maxY = containerRect.height - cardHeight - margin;
         
-        // Limiter les déplacements
+        // Limiter les déplacements avec une petite marge
         currentX = Math.max(minX, Math.min(maxX, currentX));
         currentY = Math.max(minY, Math.min(maxY, currentY));
         
