@@ -87,29 +87,48 @@ const faqData = [
 // Socket.IO
 const socket = io();
 
-// Stockage des positions initiales
+// Stockage des positions initiales et état de synchronisation
 let initialPositions = {};
 let isInitialLoadComplete = false;
+let isSyncInProgress = false;
 
 // Réception des positions initiales
 socket.on('initialPositions', (positions) => {
     console.log('Positions initiales reçues:', positions);
     initialPositions = positions;
+    
+    // Marquer le début de la synchronisation
+    isSyncInProgress = true;
+    
+    const container = document.getElementById('participants-list');
+    const existingCards = new Set(Array.from(container.querySelectorAll('.participant-card')).map(card => card.dataset.participant));
+    
     if (!isInitialLoadComplete) {
-        loadParticipants(); // Recharger les participants avec les positions sauvegardées
+        // Premier chargement
+        loadParticipants();
         isInitialLoadComplete = true;
     } else {
-        // Mise à jour des positions sans recharger complètement
+        // Mise à jour des positions existantes
         Object.entries(positions).forEach(([participant, position]) => {
             const card = document.querySelector(`.participant-card[data-participant="${participant}"]`);
-            if (card) {
-                card.style.left = `${position.x}px`;
-                card.style.top = `${position.y}px`;
-                card.style.transform = `rotate(${position.rotation || 0}deg)`;
-                card.dataset.rotation = position.rotation || 0;
+            if (card && !card.classList.contains('dragging')) {
+                // Utiliser requestAnimationFrame pour les animations fluides
+                requestAnimationFrame(() => {
+                    card.style.transition = 'left 0.3s, top 0.3s';
+                    card.style.left = `${position.x}px`;
+                    card.style.top = `${position.y}px`;
+                    card.style.transform = `rotate(${position.rotation || 0}deg)`;
+                    card.dataset.rotation = position.rotation || 0;
+                });
             }
+            existingCards.delete(participant);
         });
     }
+    
+    // Terminer la synchronisation
+    setTimeout(() => {
+        isSyncInProgress = false;
+    }, 500);
 });
 
 // Réception des mises à jour de position
@@ -349,6 +368,9 @@ function makeDraggable(element, container) {
     }
     
     function setTranslate(xPos, yPos, el) {
+        // Ne pas mettre à jour pendant la synchronisation initiale
+        if (isSyncInProgress) return;
+
         // Vérifier que les valeurs sont valides
         if (typeof xPos !== 'number' || typeof yPos !== 'number' || 
             isNaN(xPos) || isNaN(yPos)) {
@@ -357,19 +379,25 @@ function makeDraggable(element, container) {
         }
 
         // Arrondir les valeurs pour éviter les nombres décimaux trop longs
-        xPos = Math.round(xPos * 10) / 10;
-        yPos = Math.round(yPos * 10) / 10;
+        xPos = Math.max(20, Math.round(xPos * 10) / 10);
+        yPos = Math.max(20, Math.round(yPos * 10) / 10);
         const rotation = Math.round(parseFloat(el.dataset.rotation || 0) * 10) / 10;
+
+        // Vérifier si la position a vraiment changé
+        const currentX = parseFloat(el.style.left);
+        const currentY = parseFloat(el.style.top);
+        if (Math.abs(currentX - xPos) < 1 && Math.abs(currentY - yPos) < 1) {
+            return;
+        }
 
         el.style.left = `${xPos}px`;
         el.style.top = `${yPos}px`;
         el.style.transform = `rotate(${rotation}deg)`;
 
-        // Throttle simple pour limiter les émissions réseau quand on bouge rapidement
-        // (envoie au maximum toutes les 100ms par élément)
+        // Throttle simple pour limiter les émissions réseau
         const now = Date.now();
         el._lastEmit = el._lastEmit || 0;
-        if (now - el._lastEmit > 100) {
+        if (now - el._lastEmit > 50) {  // Réduit à 50ms pour plus de réactivité
             socket.emit('updatePosition', {
                 participant: el.dataset.participant,
                 x: xPos,
@@ -377,7 +405,6 @@ function makeDraggable(element, container) {
                 rotation: rotation
             });
             el._lastEmit = now;
-            console.log('Position mise à jour pour', el.dataset.participant, {x: xPos, y: yPos, rotation});
         }
     }
 }

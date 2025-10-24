@@ -74,6 +74,13 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // S'assurer que les valeurs sont positives
+        if (x < 0 || y < 0) {
+            console.warn('Position négative ignorée:', data);
+            return;
+        }
+
+        // Mettre à jour les positions
         cardPositions[data.participant] = {
             x: x,
             y: y,
@@ -81,12 +88,17 @@ io.on('connection', (socket) => {
         };
 
         // Diffuser la mise à jour à tous les autres clients
-        socket.broadcast.emit('positionUpdated', {
+        const update = {
             participant: data.participant,
             x: x,
             y: y,
             rotation: rotation
-        });
+        };
+        
+        socket.broadcast.emit('positionUpdated', update);
+
+        // Enregistrer les positions plus fréquemment
+        scheduleSave();
 
         // Programmer la sauvegarde
         scheduleSave();
