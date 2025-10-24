@@ -290,16 +290,14 @@ function generateRandomTeam() {
 
 function connectSocket() {
     if (!window.io) {
-        console.warn('Socket.IO client not loaded');
+        console.warn('Socket.IO non disponible');
         return;
     }
     
     try {
-        console.log('Tentative connexion socket.io...');
-        window.socket = io('/', {
+        console.log('Connexion socket.io...');
+        window.socket = io('https://sarrasin.mattcool.fr', {
             path: '/socket.io/',
-            transports: ['websocket', 'polling'],
-            secure: true,
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
