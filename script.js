@@ -89,14 +89,26 @@ const socket = io();
 
 // Stockage des positions initiales
 let initialPositions = {};
-let isInitialLoad = true;
+let isInitialLoadComplete = false;
 
 // Réception des positions initiales
 socket.on('initialPositions', (positions) => {
+    console.log('Positions initiales reçues:', positions);
     initialPositions = positions;
-    if (isInitialLoad) {
+    if (!isInitialLoadComplete) {
         loadParticipants(); // Recharger les participants avec les positions sauvegardées
-        isInitialLoad = false;
+        isInitialLoadComplete = true;
+    } else {
+        // Mise à jour des positions sans recharger complètement
+        Object.entries(positions).forEach(([participant, position]) => {
+            const card = document.querySelector(`.participant-card[data-participant="${participant}"]`);
+            if (card) {
+                card.style.left = `${position.x}px`;
+                card.style.top = `${position.y}px`;
+                card.style.transform = `rotate(${position.rotation || 0}deg)`;
+                card.dataset.rotation = position.rotation || 0;
+            }
+        });
     }
 });
 
@@ -166,13 +178,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Charger les participants
 function loadParticipants() {
+    console.log('Chargement des participants...');
     const container = document.getElementById('participants-list');
     container.innerHTML = '';
     
-    // Mélanger aléatoirement l'ordre des participants
-    const shuffledParticipants = [...participants].sort(() => Math.random() - 0.5);
+    // Ne pas mélanger si on a des positions initiales
+    const participantsToLoad = Object.keys(initialPositions).length > 0 
+        ? participants 
+        : [...participants].sort(() => Math.random() - 0.5);
     
-    shuffledParticipants.forEach((participant, index) => {
+    participantsToLoad.forEach((participant, index) => {
         const card = document.createElement('div');
         card.className = 'participant-card';
         card.dataset.participant = participant;
@@ -334,22 +349,35 @@ function makeDraggable(element, container) {
     }
     
     function setTranslate(xPos, yPos, el) {
+        // Vérifier que les valeurs sont valides
+        if (typeof xPos !== 'number' || typeof yPos !== 'number' || 
+            isNaN(xPos) || isNaN(yPos)) {
+            console.warn('Position invalide:', {xPos, yPos});
+            return;
+        }
+
+        // Arrondir les valeurs pour éviter les nombres décimaux trop longs
+        xPos = Math.round(xPos * 10) / 10;
+        yPos = Math.round(yPos * 10) / 10;
+        const rotation = Math.round(parseFloat(el.dataset.rotation || 0) * 10) / 10;
+
         el.style.left = `${xPos}px`;
         el.style.top = `${yPos}px`;
-        el.style.transform = `rotate(${el.dataset.rotation || 0}deg)`;
+        el.style.transform = `rotate(${rotation}deg)`;
 
         // Throttle simple pour limiter les émissions réseau quand on bouge rapidement
-        // (envoie au maximum toutes les 80ms par élément)
+        // (envoie au maximum toutes les 100ms par élément)
         const now = Date.now();
         el._lastEmit = el._lastEmit || 0;
-        if (now - el._lastEmit > 80) {
+        if (now - el._lastEmit > 100) {
             socket.emit('updatePosition', {
                 participant: el.dataset.participant,
                 x: xPos,
                 y: yPos,
-                rotation: el.dataset.rotation || 0
+                rotation: rotation
             });
             el._lastEmit = now;
+            console.log('Position mise à jour pour', el.dataset.participant, {x: xPos, y: yPos, rotation});
         }
     }
 }

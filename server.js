@@ -42,19 +42,41 @@ function scheduleSave() {
 io.on('connection', (socket) => {
     console.log('Un utilisateur s\'est connecté');
 
-    // Envoyer les positions actuelles au nouveau client
-    socket.emit('initialPositions', cardPositions);
+    // Attendre un petit délai avant d'envoyer les positions initiales
+    setTimeout(() => {
+        // Envoyer les positions actuelles au nouveau client
+        socket.emit('initialPositions', cardPositions);
+        console.log('Positions initiales envoyées au nouveau client');
+    }, 500);
 
     // Recevoir les mises à jour de position
     socket.on('updatePosition', (data) => {
         if (!data || !data.participant) return;
+        
+        // Valider les données reçues
+        const x = parseFloat(data.x);
+        const y = parseFloat(data.y);
+        const rotation = parseFloat(data.rotation || 0);
+        
+        if (isNaN(x) || isNaN(y) || isNaN(rotation)) {
+            console.warn('Données de position invalides reçues:', data);
+            return;
+        }
+
         cardPositions[data.participant] = {
-            x: data.x,
-            y: data.y,
-            rotation: data.rotation
+            x: x,
+            y: y,
+            rotation: rotation
         };
+
         // Diffuser la mise à jour à tous les autres clients
-        socket.broadcast.emit('positionUpdated', data);
+        socket.broadcast.emit('positionUpdated', {
+            participant: data.participant,
+            x: x,
+            y: y,
+            rotation: rotation
+        });
+
         // Programmer la sauvegarde
         scheduleSave();
     });
