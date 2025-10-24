@@ -196,10 +196,16 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Charger les participants
+// Charger les participants
 function loadParticipants() {
     console.log('Chargement des participants...');
     const container = document.getElementById('participants-list');
     container.innerHTML = '';
+    
+    // Obtenir les dimensions du conteneur
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
     
     // Ne pas mélanger si on a des positions initiales
     const participantsToLoad = Object.keys(initialPositions).length > 0 
@@ -216,23 +222,29 @@ function loadParticipants() {
         
         // Position absolue : si le serveur a donné une position, l'utiliser,
         // sinon générer une position/rotation aléatoire dans le conteneur.
-        const containerRect = container.getBoundingClientRect();
         const cardWidth = 200; // Largeur approximative de la carte
         const cardHeight = 100; // Hauteur approximative de la carte
-
-        const maxX = Math.max(0, containerRect.width - cardWidth - 40);
-        const maxY = Math.max(0, containerRect.height - cardHeight - 40);
 
         const saved = initialPositions[participant];
         let xPos, yPos, rotation;
 
-        if (saved && typeof saved.x === 'number') {
-            // Utiliser la position sauvegardée (reçue du serveur)
-            xPos = saved.x;
-            yPos = saved.y;
+        if (saved && typeof saved.x === 'number' && saved.x > 0 && saved.y > 0) {
+            // Position sauvegardée : convertir depuis les coordonnées de référence
+            // On utilise un ratio pour adapter à la taille actuelle du conteneur
+            // Référence : 1200px de largeur (max-width du container dans le CSS)
+            const referenceWidth = 1200;
+            const referenceHeight = 600; // min-height de participants-grid
+            
+            const xRatio = saved.x / referenceWidth;
+            const yRatio = saved.y / referenceHeight;
+            
+            xPos = Math.min(xRatio * containerWidth, containerWidth - cardWidth - 40);
+            yPos = Math.min(yRatio * containerHeight, containerHeight - cardHeight - 40);
             rotation = saved.rotation || 0;
         } else {
             // Position/rotation aléatoire
+            const maxX = Math.max(0, containerWidth - cardWidth - 40);
+            const maxY = Math.max(0, containerHeight - cardHeight - 40);
             xPos = Math.random() * maxX;
             yPos = Math.random() * maxY;
             rotation = (Math.random() - 0.5) * 8;
@@ -361,21 +373,29 @@ function makeDraggable(element, container) {
         element.style.transition = 'transform 0.3s ease';
         element.style.zIndex = '1';
         
-        // Envoyer la position finale après le drag
+        // Envoyer la position finale normalisée (en coordonnées de référence)
         const finalX = parseFloat(element.style.left) || xOffset;
         const finalY = parseFloat(element.style.top) || yOffset;
         
-        console.log('Drag terminé, position finale:', {
+        // Convertir en coordonnées de référence (1200x600)
+        const containerRect = container.getBoundingClientRect();
+        const referenceWidth = 1200;
+        const referenceHeight = 600;
+        
+        const normalizedX = (finalX / containerRect.width) * referenceWidth;
+        const normalizedY = (finalY / containerRect.height) * referenceHeight;
+        
+        console.log('Drag terminé, position normalisée:', {
             participant: element.dataset.participant,
-            x: finalX,
-            y: finalY,
+            x: normalizedX,
+            y: normalizedY,
             rotation: element.dataset.rotation || 0
         });
         
         socket.emit('updatePosition', {
             participant: element.dataset.participant,
-            x: finalX,
-            y: finalY,
+            x: normalizedX,
+            y: normalizedY,
             rotation: element.dataset.rotation || 0
         });
     }
@@ -410,11 +430,19 @@ function makeDraggable(element, container) {
         // Throttle simple pour limiter les émissions réseau
         const now = Date.now();
         el._lastEmit = el._lastEmit || 0;
-        if (now - el._lastEmit > 50) {  // Réduit à 50ms pour plus de réactivité
+        if (now - el._lastEmit > 50) {
+            // Convertir en coordonnées de référence
+            const containerRect = container.getBoundingClientRect();
+            const referenceWidth = 1200;
+            const referenceHeight = 600;
+            
+            const normalizedX = (xPos / containerRect.width) * referenceWidth;
+            const normalizedY = (yPos / containerRect.height) * referenceHeight;
+            
             socket.emit('updatePosition', {
                 participant: el.dataset.participant,
-                x: xPos,
-                y: yPos,
+                x: normalizedX,
+                y: normalizedY,
                 rotation: rotation
             });
             el._lastEmit = now;
