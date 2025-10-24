@@ -84,6 +84,29 @@ const faqData = [
     }
 ];
 
+// Socket.IO
+const socket = io();
+
+// Stockage des positions initiales
+let initialPositions = {};
+
+// Réception des positions initiales
+socket.on('initialPositions', (positions) => {
+    initialPositions = positions;
+    loadParticipants(); // Recharger les participants avec les positions sauvegardées
+});
+
+// Réception des mises à jour de position
+socket.on('positionUpdated', (data) => {
+    const card = document.querySelector(`.participant-card[data-participant="${data.participant}"]`);
+    if (card) {
+        card.style.left = `${data.x}px`;
+        card.style.top = `${data.y}px`;
+        card.style.transform = `rotate(${data.rotation}deg)`;
+        card.dataset.rotation = data.rotation;
+    }
+});
+
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
     // Charger les participants
@@ -110,6 +133,7 @@ function loadParticipants() {
     shuffledParticipants.forEach((participant, index) => {
         const card = document.createElement('div');
         card.className = 'participant-card';
+        card.dataset.participant = participant;
         card.innerHTML = `
             <h3>${participant}</h3>
         `;
@@ -253,6 +277,14 @@ function makeDraggable(element, container) {
         el.style.left = `${xPos}px`;
         el.style.top = `${yPos}px`;
         el.style.transform = `rotate(${el.dataset.rotation || 0}deg)`;
+        
+        // Envoyer la mise à jour de position aux autres utilisateurs
+        socket.emit('updatePosition', {
+            participant: el.dataset.participant,
+            x: xPos,
+            y: yPos,
+            rotation: el.dataset.rotation || 0
+        });
     }
 }
 
