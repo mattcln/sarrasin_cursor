@@ -3,21 +3,51 @@ const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const path = require('path');
+const fs = require('fs');
 
 // Servir les fichiers statiques
 app.use(express.static(__dirname));
 
-// Stocker les positions actuelles des cartes
-const cardPositions = {};
+// Fichier de persistance simple
+const DATA_FILE = path.join(__dirname, 'positions.json');
+
+// Stocker les positions actuelles des cartes (chargées depuis le disque si présent)
+let cardPositions = {};
+try {
+    if (fs.existsSync(DATA_FILE)) {
+        const raw = fs.readFileSync(DATA_FILE, 'utf8');
+        cardPositions = JSON.parse(raw) || {};
+        console.log('Positions chargées depuis', DATA_FILE);
+    }
+} catch (err) {
+    console.warn('Impossible de charger les positions depuis le disque:', err.message);
+}
+
+// Persistance débounced pour éviter d'écrire trop souvent
+let saveTimeout = null;
+function scheduleSave() {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        try {
+            fs.writeFileSync(DATA_FILE + '.tmp', JSON.stringify(cardPositions, null, 2), 'utf8');
+            fs.renameSync(DATA_FILE + '.tmp', DATA_FILE);
+            // console.log('Positions sauvegardées');
+        } catch (err) {
+            console.error('Erreur en sauvegardant les positions:', err.message);
+        }
+        saveTimeout = null;
+    }, 500);
+}
 
 io.on('connection', (socket) => {
     console.log('Un utilisateur s\'est connecté');
-    
+
     // Envoyer les positions actuelles au nouveau client
     socket.emit('initialPositions', cardPositions);
-    
+
     // Recevoir les mises à jour de position
     socket.on('updatePosition', (data) => {
+        if (!data || !data.participant) return;
         cardPositions[data.participant] = {
             x: data.x,
             y: data.y,
@@ -25,12 +55,32 @@ io.on('connection', (socket) => {
         };
         // Diffuser la mise à jour à tous les autres clients
         socket.broadcast.emit('positionUpdated', data);
+        // Programmer la sauvegarde
+        scheduleSave();
     });
-    
+
     socket.on('disconnect', () => {
         console.log('Un utilisateur s\'est déconnecté');
     });
 });
+
+// Assurer la sauvegarde au shutdown
+function flushAndExit() {
+    if (saveTimeout) {
+        clearTimeout(saveTimeout);
+        saveTimeout = null;
+    }
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(cardPositions, null, 2), 'utf8');
+        console.log('Positions sauvegardées avant arrêt');
+    } catch (err) {
+        console.error('Erreur lors du flush:', err.message);
+    }
+    process.exit(0);
+}
+
+process.on('SIGINT', flushAndExit);
+process.on('SIGTERM', flushAndExit);
 
 const PORT = process.env.PORT || 8080;
 http.listen(PORT, () => {

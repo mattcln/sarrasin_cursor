@@ -138,23 +138,33 @@ function loadParticipants() {
             <h3>${participant}</h3>
         `;
         
-        // Position absolue aléatoire dans le conteneur
+        // Position absolue : si le serveur a donné une position, l'utiliser,
+        // sinon générer une position/rotation aléatoire dans le conteneur.
         const containerRect = container.getBoundingClientRect();
         const cardWidth = 200; // Largeur approximative de la carte
         const cardHeight = 100; // Hauteur approximative de la carte
-        
-        const maxX = containerRect.width - cardWidth - 40;
-        const maxY = containerRect.height - cardHeight - 40;
-        
-        const randomX = Math.random() * maxX;
-        const randomY = Math.random() * maxY;
-        
-        // Rotation aléatoire
-        const rotation = (Math.random() - 0.5) * 8;
-        
+
+        const maxX = Math.max(0, containerRect.width - cardWidth - 40);
+        const maxY = Math.max(0, containerRect.height - cardHeight - 40);
+
+        const saved = initialPositions[participant];
+        let xPos, yPos, rotation;
+
+        if (saved && typeof saved.x === 'number') {
+            // Utiliser la position sauvegardée (reçue du serveur)
+            xPos = saved.x;
+            yPos = saved.y;
+            rotation = saved.rotation || 0;
+        } else {
+            // Position/rotation aléatoire
+            xPos = Math.random() * maxX;
+            yPos = Math.random() * maxY;
+            rotation = (Math.random() - 0.5) * 8;
+        }
+
         card.style.position = 'absolute';
-        card.style.left = `${randomX}px`;
-        card.style.top = `${randomY}px`;
+        card.style.left = `${xPos}px`;
+        card.style.top = `${yPos}px`;
         card.style.transform = `rotate(${rotation}deg)`;
         card.style.transition = 'transform 0.3s ease';
         
@@ -172,8 +182,8 @@ function loadParticipants() {
             }
         });
         
-        // Stocker la rotation initiale
-        card.dataset.rotation = rotation;
+    // Stocker la rotation initiale
+    card.dataset.rotation = rotation;
         
         // Ajouter le drag and drop
         makeDraggable(card, container);
@@ -271,20 +281,33 @@ function makeDraggable(element, container) {
         element.classList.remove('dragging');
         element.style.transition = 'transform 0.3s ease';
         element.style.zIndex = '1';
+        // Envoyer une dernière mise à jour à la fin du drag (garantir la synchro)
+        socket.emit('updatePosition', {
+            participant: element.dataset.participant,
+            x: xOffset,
+            y: yOffset,
+            rotation: element.dataset.rotation || 0
+        });
     }
     
     function setTranslate(xPos, yPos, el) {
         el.style.left = `${xPos}px`;
         el.style.top = `${yPos}px`;
         el.style.transform = `rotate(${el.dataset.rotation || 0}deg)`;
-        
-        // Envoyer la mise à jour de position aux autres utilisateurs
-        socket.emit('updatePosition', {
-            participant: el.dataset.participant,
-            x: xPos,
-            y: yPos,
-            rotation: el.dataset.rotation || 0
-        });
+
+        // Throttle simple pour limiter les émissions réseau quand on bouge rapidement
+        // (envoie au maximum toutes les 80ms par élément)
+        const now = Date.now();
+        el._lastEmit = el._lastEmit || 0;
+        if (now - el._lastEmit > 80) {
+            socket.emit('updatePosition', {
+                participant: el.dataset.participant,
+                x: xPos,
+                y: yPos,
+                rotation: el.dataset.rotation || 0
+            });
+            el._lastEmit = now;
+        }
     }
 }
 
