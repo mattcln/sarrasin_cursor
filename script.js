@@ -2,7 +2,7 @@
 const participants = [
     "Alice",
     "Alix",
-    "Anais",
+    "Anaïs",
     "Cha",
     "Gabin",
     "Jacques",
@@ -77,6 +77,10 @@ const faqData = [
     {
         question: "Faut-il avoir un niveau de forme physique particulier ?",
         answer: "Les activités sont accessibles à tous. Si vous avez des limitations physiques, n'hésitez pas à nous en informer et nous adapterons le programme."
+    },
+    {
+        question: "Je dois apporter mes draps ?",
+        answer: "Oui stp"
     }
 ];
 

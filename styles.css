@@ -258,6 +258,20 @@ body {
     letter-spacing: 2px;
 }
 
+/* Hero image replacement for the textual title/subtitle */
+.home-hero {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.home-hero-image {
+    max-width: 70%;
+    height: auto;
+    display: inline-block;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 .flash-divider {
     height: 2px;
     background: linear-gradient(
