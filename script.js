@@ -86,15 +86,18 @@ const faqData = [
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
+    // Connect to realtime server (if available)
+    connectSocket();
+
     // Charger les participants
     loadParticipants();
-    
+
     // Charger les FAQ
     loadFAQ();
-    
+
     // Configuration de la navigation
     setupNavigation();
-    
+
     // Configuration du modal
     setupModal();
 });
@@ -113,21 +116,30 @@ function loadParticipants() {
         card.innerHTML = `
             <h3>${participant}</h3>
         `;
-        
-        // Position absolue aléatoire dans le conteneur
+        // Assign a stable id for sync
+        const id = slugify(participant);
+        card.dataset.id = id;
+
+        // Position absolue
         const containerRect = container.getBoundingClientRect();
         const cardWidth = 200; // Largeur approximative de la carte
         const cardHeight = 100; // Hauteur approximative de la carte
-        
-        const maxX = containerRect.width - cardWidth - 40;
-        const maxY = containerRect.height - cardHeight - 40;
-        
-        const randomX = Math.random() * maxX;
-        const randomY = Math.random() * maxY;
-        
-        // Rotation aléatoire
-        const rotation = (Math.random() - 0.5) * 8;
-        
+
+        const maxX = Math.max(20, containerRect.width - cardWidth - 40);
+        const maxY = Math.max(20, containerRect.height - cardHeight - 40);
+
+        // Rotation and position from server if available
+        let rotation = (Math.random() - 0.5) * 8;
+        let randomX = Math.random() * maxX;
+        let randomY = Math.random() * maxY;
+
+        if (window.__serverPositions && window.__serverPositions[id]) {
+            const p = window.__serverPositions[id];
+            randomX = p.left || randomX;
+            randomY = p.top || randomY;
+            rotation = p.rotation || rotation;
+        }
+
         card.style.position = 'absolute';
         card.style.left = `${randomX}px`;
         card.style.top = `${randomY}px`;
@@ -155,6 +167,13 @@ function loadParticipants() {
         makeDraggable(card, container);
         
         container.appendChild(card);
+
+        // If we don't have server positions for this card, register initial position with server
+        if (window.socket && window.socket.connected && (!window.__serverPositions || !window.__serverPositions[id])) {
+            setTimeout(() => {
+                emitMove(card);
+            }, 100 + index * 20);
+        }
     });
 }
 
@@ -247,6 +266,9 @@ function makeDraggable(element, container) {
         element.classList.remove('dragging');
         element.style.transition = 'transform 0.3s ease';
         element.style.zIndex = '1';
+
+        // Emit new position to server (if connected)
+        emitMove(element);
     }
     
     function setTranslate(xPos, yPos, el) {
@@ -260,6 +282,75 @@ function makeDraggable(element, container) {
 function generateRandomTeam() {
     const shuffled = [...participants].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, 2);
+}
+
+// ----------------------
+// Realtime socket helpers
+// ----------------------
+
+function connectSocket() {
+    if (!window.io) return;
+    try {
+        window.socket = io();
+    } catch (err) {
+        console.warn('socket.io not available', err);
+        return;
+    }
+
+    socket.on('connect', () => {
+        console.log('socket connected', socket.id);
+    });
+
+    socket.on('state', (serverPositions) => {
+        // store globally for initial load
+        window.__serverPositions = serverPositions || {};
+        applyServerPositions(serverPositions || {});
+    });
+
+    socket.on('moved', (data) => {
+        // Update a single card
+        if (!data || !data.id) return;
+        const el = document.querySelector(`.participant-card[data-id="${data.id}"]`);
+        if (el) {
+            el.style.left = `${data.left}px`;
+            el.style.top = `${data.top}px`;
+            el.dataset.rotation = data.rotation || 0;
+            el.style.transform = `rotate(${data.rotation || 0}deg)`;
+        }
+        // keep local store updated
+        window.__serverPositions = window.__serverPositions || {};
+        window.__serverPositions[data.id] = { left: data.left, top: data.top, rotation: data.rotation };
+    });
+}
+
+function emitMove(el) {
+    if (!window.socket || !window.socket.connected) return;
+    const id = el.dataset.id;
+    const left = parseFloat(el.style.left) || 0;
+    const top = parseFloat(el.style.top) || 0;
+    const rotation = parseFloat(el.dataset.rotation) || 0;
+    socket.emit('move', { id, left, top, rotation });
+}
+
+function applyServerPositions(serverPositions) {
+    if (!serverPositions) return;
+    document.querySelectorAll('.participant-card').forEach(card => {
+        const id = card.dataset.id;
+        if (serverPositions[id]) {
+            const p = serverPositions[id];
+            card.style.left = `${p.left}px`;
+            card.style.top = `${p.top}px`;
+            card.dataset.rotation = p.rotation || 0;
+            card.style.transform = `rotate(${p.rotation || 0}deg)`;
+        }
+    });
+}
+
+function slugify(name) {
+    return name.normalize('NFD').replace(/\p{Diacritic}/gu, '')
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_|_$/g, '')
+        .toLowerCase();
 }
 
 // Charger les FAQ
