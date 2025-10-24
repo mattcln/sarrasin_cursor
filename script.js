@@ -351,6 +351,8 @@ function makeDraggable(element, container) {
     document.addEventListener('touchend', dragEnd);
     
     function dragEnd(e) {
+        if (!isDragging) return;
+        
         initialX = currentX;
         initialY = currentY;
         
@@ -358,11 +360,22 @@ function makeDraggable(element, container) {
         element.classList.remove('dragging');
         element.style.transition = 'transform 0.3s ease';
         element.style.zIndex = '1';
-        // Envoyer une dernière mise à jour à la fin du drag (garantir la synchro)
+        
+        // Envoyer la position finale après le drag
+        const finalX = parseFloat(element.style.left) || xOffset;
+        const finalY = parseFloat(element.style.top) || yOffset;
+        
+        console.log('Drag terminé, position finale:', {
+            participant: element.dataset.participant,
+            x: finalX,
+            y: finalY,
+            rotation: element.dataset.rotation || 0
+        });
+        
         socket.emit('updatePosition', {
             participant: element.dataset.participant,
-            x: xOffset,
-            y: yOffset,
+            x: finalX,
+            y: finalY,
             rotation: element.dataset.rotation || 0
         });
     }
@@ -379,8 +392,8 @@ function makeDraggable(element, container) {
         }
 
         // Arrondir les valeurs pour éviter les nombres décimaux trop longs
-        xPos = Math.max(20, Math.round(xPos * 10) / 10);
-        yPos = Math.max(20, Math.round(yPos * 10) / 10);
+        xPos = Math.round(xPos * 10) / 10;
+        yPos = Math.round(yPos * 10) / 10;
         const rotation = Math.round(parseFloat(el.dataset.rotation || 0) * 10) / 10;
 
         // Vérifier si la position a vraiment changé
