@@ -296,7 +296,7 @@ function connectSocket() {
     
     try {
         console.log('Tentative connexion socket.io...');
-        window.socket = io('https://sarrasin.mattcool.fr:4000', {
+        window.socket = io('https://sarrasin.mattcool.fr', {
             path: '/socket.io/',
             transports: ['websocket', 'polling'],
             reconnection: true,
