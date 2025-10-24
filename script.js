@@ -289,17 +289,40 @@ function generateRandomTeam() {
 // ----------------------
 
 function connectSocket() {
-    if (!window.io) return;
-    try {
-        window.socket = io();
-    } catch (err) {
-        console.warn('socket.io not available', err);
+    if (!window.io) {
+        console.warn('Socket.IO client not loaded');
         return;
     }
+    
+    try {
+        console.log('Tentative connexion socket.io...');
+        window.socket = io('https://sarrasin.mattcool.fr:4000', {
+            path: '/socket.io/',
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5
+        });
 
-    socket.on('connect', () => {
-        console.log('socket connected', socket.id);
-    });
+        socket.on('connect', () => {
+            console.log('Socket connecté!', socket.id);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('Erreur connexion socket:', error.message);
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.log('Socket déconnecté:', reason);
+        });
+
+        socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log('Tentative reconnexion #', attemptNumber);
+        });
+    } catch (err) {
+        console.error('Erreur setup socket:', err);
+    }
 
     socket.on('state', (serverPositions) => {
         // store globally for initial load
@@ -324,12 +347,17 @@ function connectSocket() {
 }
 
 function emitMove(el) {
-    if (!window.socket || !window.socket.connected) return;
+    if (!window.socket || !window.socket.connected) {
+        console.warn('Socket non connecté - impossible d\'envoyer le mouvement');
+        return;
+    }
     const id = el.dataset.id;
     const left = parseFloat(el.style.left) || 0;
     const top = parseFloat(el.style.top) || 0;
     const rotation = parseFloat(el.dataset.rotation) || 0;
-    socket.emit('move', { id, left, top, rotation });
+    const data = { id, left, top, rotation };
+    console.log('Envoi mouvement:', data);
+    socket.emit('move', data);
 }
 
 function applyServerPositions(serverPositions) {
