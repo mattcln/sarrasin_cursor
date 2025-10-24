@@ -65,7 +65,7 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('moved', { id: payload.id, ...positions[payload.id] });
 
     scheduleSave();
-  });
+  const PORT = process.env.PORT || 8080;
 
   socket.on('resetPositions', () => {
     positions = {};
