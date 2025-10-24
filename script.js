@@ -296,11 +296,10 @@ function connectSocket() {
     
     try {
         console.log('Tentative connexion socket.io...');
-        window.socket = io('http://sarrasin.mattcool.fr:8080', {
+        window.socket = io('/', {
             path: '/socket.io/',
-            transports: ['websocket'],
-            secure: false,
-            rejectUnauthorized: false,
+            transports: ['websocket', 'polling'],
+            secure: true,
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
