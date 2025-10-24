@@ -109,14 +109,30 @@ socket.on('initialPositions', (positions) => {
         isInitialLoadComplete = true;
     } else {
         // Mise à jour des positions existantes
+        const containerRect = container.getBoundingClientRect();
+        const referenceWidth = 1200;
+        const referenceHeight = 600;
+        
         Object.entries(positions).forEach(([participant, position]) => {
             const card = document.querySelector(`.participant-card[data-participant="${participant}"]`);
             if (card && !card.classList.contains('dragging')) {
+                // Convertir depuis les coordonnées de référence
+                let xPos = (position.x / referenceWidth) * containerRect.width;
+                let yPos = (position.y / referenceHeight) * containerRect.height;
+                
+                // S'assurer que la carte reste dans les limites
+                const cardRect = card.getBoundingClientRect();
+                const maxX = containerRect.width - cardRect.width - 20;
+                const maxY = containerRect.height - cardRect.height - 20;
+                
+                xPos = Math.max(20, Math.min(maxX, xPos));
+                yPos = Math.max(20, Math.min(maxY, yPos));
+                
                 // Utiliser requestAnimationFrame pour les animations fluides
                 requestAnimationFrame(() => {
                     card.style.transition = 'left 0.3s, top 0.3s';
-                    card.style.left = `${position.x}px`;
-                    card.style.top = `${position.y}px`;
+                    card.style.left = `${xPos}px`;
+                    card.style.top = `${yPos}px`;
                     card.style.transform = `rotate(${position.rotation || 0}deg)`;
                     card.dataset.rotation = position.rotation || 0;
                 });
@@ -136,8 +152,29 @@ socket.on('positionUpdated', (data) => {
     const card = document.querySelector(`.participant-card[data-participant="${data.participant}"]`);
     if (card && !card.classList.contains('dragging')) {
         requestAnimationFrame(() => {
-            card.style.left = `${data.x}px`;
-            card.style.top = `${data.y}px`;
+            // Convertir depuis les coordonnées de référence vers la taille actuelle
+            const container = document.getElementById('participants-list');
+            const containerRect = container.getBoundingClientRect();
+            const cardRect = card.getBoundingClientRect();
+            
+            const referenceWidth = 1200;
+            const referenceHeight = 600;
+            
+            // Calculer la position adaptée
+            let xPos = (data.x / referenceWidth) * containerRect.width;
+            let yPos = (data.y / referenceHeight) * containerRect.height;
+            
+            // S'assurer que la carte reste dans les limites
+            const cardWidth = cardRect.width;
+            const cardHeight = cardRect.height;
+            const maxX = containerRect.width - cardWidth - 20;
+            const maxY = containerRect.height - cardHeight - 20;
+            
+            xPos = Math.max(20, Math.min(maxX, xPos));
+            yPos = Math.max(20, Math.min(maxY, yPos));
+            
+            card.style.left = `${xPos}px`;
+            card.style.top = `${yPos}px`;
             card.style.transform = `rotate(${data.rotation}deg)`;
             card.dataset.rotation = data.rotation;
         });
