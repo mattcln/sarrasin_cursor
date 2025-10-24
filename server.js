@@ -9,7 +9,7 @@ const fs = require('fs');
 app.use(express.static(__dirname));
 
 // Fichier de persistance simple
-const DATA_FILE = path.join(__dirname, 'positions.json');
+const DATA_FILE = '/home/mattcool/sarrasin_cursor/positions.json';
 
 // Stocker les positions actuelles des cartes (chargées depuis le disque si présent)
 let cardPositions = {};
@@ -18,6 +18,9 @@ try {
         const raw = fs.readFileSync(DATA_FILE, 'utf8');
         cardPositions = JSON.parse(raw) || {};
         console.log('Positions chargées depuis', DATA_FILE);
+    } else {
+        console.log('Création du fichier de positions:', DATA_FILE);
+        fs.writeFileSync(DATA_FILE, '{}', 'utf8');
     }
 } catch (err) {
     console.warn('Impossible de charger les positions depuis le disque:', err.message);
@@ -29,11 +32,19 @@ function scheduleSave() {
     if (saveTimeout) clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => {
         try {
+            // Créer le dossier parent si nécessaire
+            const parentDir = path.dirname(DATA_FILE);
+            if (!fs.existsSync(parentDir)) {
+                fs.mkdirSync(parentDir, { recursive: true });
+            }
+            
+            // Sauvegarder avec un fichier temporaire
             fs.writeFileSync(DATA_FILE + '.tmp', JSON.stringify(cardPositions, null, 2), 'utf8');
             fs.renameSync(DATA_FILE + '.tmp', DATA_FILE);
-            // console.log('Positions sauvegardées');
+            console.log('Positions sauvegardées dans', DATA_FILE);
         } catch (err) {
             console.error('Erreur en sauvegardant les positions:', err.message);
+            console.error('Chemin du fichier:', DATA_FILE);
         }
         saveTimeout = null;
     }, 500);
