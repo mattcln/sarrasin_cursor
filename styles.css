@@ -675,6 +675,7 @@ body {
     
     .modal-content {
         padding: 30px 20px;
+        max-height: 90vh;
     }
     
     .modal-content h2 {
@@ -683,6 +684,19 @@ body {
     
     .modal-content p {
         font-size: 1rem;
+    }
+    
+    #modal-answer {
+        max-height: calc(90vh - 120px);
+    }
+    
+    .close-modal {
+        width: 40px;
+        height: 40px;
+        font-size: 2.5rem;
+        background: var(--bg-dark);
+        border: 3px solid var(--electric-blue);
+        box-shadow: 0 0 15px var(--glow-blue);
     }
 }
 
@@ -708,6 +722,24 @@ body {
     
     .faq-item:hover {
         transform: translateX(0);
+    }
+    
+    .modal-content {
+        padding: 25px 15px;
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    #modal-answer {
+        max-height: calc(95vh - 100px);
+    }
+    
+    .close-modal {
+        width: 45px;
+        height: 45px;
+        font-size: 3rem;
+        right: 10px;
+        top: 10px;
     }
 }
 
